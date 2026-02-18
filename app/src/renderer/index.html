@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-eval'; font-src 'self' data:;"
+    />
+    <title>Claude Code</title>
+    <link rel="stylesheet" href="../../node_modules/@xterm/xterm/css/xterm.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <!-- Title bar drag region -->
+    <div id="titlebar">
+      <div id="titlebar-drag"></div>
+      <div id="titlebar-title">Claude Code</div>
+      <div id="titlebar-actions">
+        <button id="btn-new-session" title="New Session (⌘N)">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path
+              d="M8 3v10M3 8h10"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
+        <button id="btn-open-project" title="Open Project (⌘O)">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path
+              d="M2 4.5h4l1.5 1.5H14v7H2z"
+              stroke="currentColor"
+              stroke-width="1.2"
+              stroke-linejoin="round"
+              fill="none"
+            />
+          </svg>
+        </button>
+        <button id="btn-settings" title="Settings (⌘,)">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.2" />
+            <path
+              d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6L13 13M13 3l-1.4 1.4M4.4 11.6L3 13"
+              stroke="currentColor"
+              stroke-width="1.2"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Welcome screen (shown before claude starts) -->
+    <div id="welcome-screen">
+      <div id="welcome-content">
+        <div id="welcome-logo">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" rx="16" fill="#D97706" />
+            <text
+              x="32"
+              y="42"
+              text-anchor="middle"
+              font-size="32"
+              font-weight="bold"
+              fill="white"
+              font-family="system-ui"
+            >
+              C
+            </text>
+          </svg>
+        </div>
+        <h1>Claude Code</h1>
+        <p class="subtitle">Agentic coding tool for macOS</p>
+        <div id="claude-status"></div>
+        <div id="welcome-actions">
+          <button id="btn-start" class="primary-btn">
+            Start Claude Code
+          </button>
+          <button id="btn-start-project" class="secondary-btn">
+            Open Project Folder...
+          </button>
+        </div>
+        <div id="recent-projects"></div>
+      </div>
+    </div>
+
+    <!-- Terminal container -->
+    <div id="terminal-container" class="hidden">
+      <div id="terminal"></div>
+    </div>
+
+    <!-- Settings overlay -->
+    <div id="settings-overlay" class="hidden">
+      <div id="settings-panel">
+        <div id="settings-header">
+          <h2>Settings</h2>
+          <button id="btn-close-settings">&times;</button>
+        </div>
+        <div id="settings-body">
+          <div class="setting-group">
+            <label>Font Size</label>
+            <input type="number" id="setting-font-size" min="10" max="32" />
+          </div>
+          <div class="setting-group">
+            <label>Font Family</label>
+            <input type="text" id="setting-font-family" />
+          </div>
+          <div class="setting-group">
+            <label>Theme</label>
+            <select id="setting-theme">
+              <option value="system">System</option>
+              <option value="dark">Dark</option>
+              <option value="light">Light</option>
+            </select>
+          </div>
+          <div class="setting-group">
+            <label>Claude Binary Path</label>
+            <div class="input-with-button">
+              <input type="text" id="setting-claude-path" placeholder="Auto-detect" />
+              <button id="btn-detect-claude">Detect</button>
+            </div>
+          </div>
+          <div class="setting-group">
+            <label>
+              <input type="checkbox" id="setting-start-in-tray" />
+              Keep running in system tray when closed
+            </label>
+          </div>
+          <div class="setting-group">
+            <label>Global Shortcut</label>
+            <input type="text" id="setting-global-shortcut" placeholder="CommandOrControl+Shift+C" />
+          </div>
+          <div class="setting-actions">
+            <button id="btn-save-settings" class="primary-btn">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>

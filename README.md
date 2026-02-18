@@ -1,72 +1,116 @@
-# Claude Code
+# Claude Code macOS
 
-![](https://img.shields.io/badge/Node.js-18%2B-brightgreen?style=flat-square) [![npm]](https://www.npmjs.com/package/@anthropic-ai/claude-code)
+Native macOS application for [Claude Code](https://github.com/anthropics/claude-code) — Anthropic's agentic coding tool.
 
-[npm]: https://img.shields.io/npm/v/@anthropic-ai/claude-code.svg?style=flat-square
+This fork wraps Claude Code's terminal-based CLI in a native macOS Electron app with a proper window, system tray, global shortcuts, and all the native features you'd expect from a macOS developer tool.
 
-Claude Code is an agentic coding tool that lives in your terminal, understands your codebase, and helps you code faster by executing routine tasks, explaining complex code, and handling git workflows -- all through natural language commands. Use it in your terminal, IDE, or tag @claude on Github.
+## Features
 
-**Learn more in the [official documentation](https://code.claude.com/docs/en/overview)**.
+- **Native macOS window** with hidden title bar and traffic light controls
+- **xterm.js terminal emulator** for full Claude Code compatibility (colors, Unicode, links)
+- **System tray** integration — keep Claude running in the background
+- **Global shortcut** (Cmd+Shift+C) to toggle the window from anywhere
+- **Project picker** — open any directory as a Claude Code project
+- **Zoom controls** — adjust terminal font size on the fly
+- **Dark/Light theme** — follows macOS system appearance or set manually
+- **Settings panel** — configure fonts, theme, Claude binary path, and more
+- **macOS vibrancy** — native translucent background effect
 
-<img src="./demo.gif" />
+## Prerequisites
 
-## Get started
-> [!NOTE]
-> Installation via npm is deprecated. Use one of the recommended methods below.
+- macOS 12+ (Monterey or later)
+- [Claude Code CLI](https://code.claude.com/docs/en/setup) installed:
+  ```bash
+  curl -fsSL https://claude.ai/install.sh | bash
+  ```
 
-For more installation options, uninstall steps, and troubleshooting, see the [setup documentation](https://code.claude.com/docs/en/setup).
+## Quick Start
 
-1. Install Claude Code:
+```bash
+# Clone the repo
+git clone https://github.com/breathflowconnection/claude-code-macos.git
+cd claude-code-macos/app
 
-    **MacOS/Linux (Recommended):**
-    ```bash
-    curl -fsSL https://claude.ai/install.sh | bash
-    ```
+# Install dependencies
+npm install
 
-    **Homebrew (MacOS/Linux):**
-    ```bash
-    brew install --cask claude-code
-    ```
+# Launch in development mode
+./start.sh
+# Or: unset ELECTRON_RUN_AS_NODE && npx electron .
+```
 
-    **Windows (Recommended):**
-    ```powershell
-    irm https://claude.ai/install.ps1 | iex
-    ```
+> **Note:** If running from VSCode's integrated terminal, you must unset `ELECTRON_RUN_AS_NODE` first (the `start.sh` script handles this automatically).
 
-    **WinGet (Windows):**
-    ```powershell
-    winget install Anthropic.ClaudeCode
-    ```
+## Build as .app
 
-    **NPM (Deprecated):**
-    ```bash
-    npm install -g @anthropic-ai/claude-code
-    ```
+```bash
+cd app
 
-2. Navigate to your project directory and run `claude`.
+# Build DMG for distribution
+npm run build:dmg
 
-## Plugins
+# Build ZIP
+npm run build:zip
 
-This repository includes several Claude Code plugins that extend functionality with custom commands and agents. See the [plugins directory](./plugins/README.md) for detailed documentation on available plugins.
+# Build both
+npm run build
+```
 
-## Reporting Bugs
+Built artifacts appear in `app/dist/`.
 
-We welcome your feedback. Use the `/bug` command to report issues directly within Claude Code, or file a [GitHub issue](https://github.com/anthropics/claude-code/issues).
+## Architecture
 
-## Connect on Discord
+```
+app/
+├── src/
+│   ├── main/
+│   │   ├── main.js        # Electron main process (window, tray, PTY, IPC)
+│   │   └── preload.js     # Bridge between main and renderer
+│   └── renderer/
+│       ├── index.html      # App UI
+│       ├── styles.css      # Catppuccin-inspired theme
+│       └── renderer.js     # xterm.js terminal + UI logic
+├── assets/
+│   ├── icon.svg            # App icon source
+│   ├── icon.png            # App icon (1024x1024)
+│   └── icon.icns           # macOS icon set
+├── entitlements.mac.plist  # macOS entitlements for code signing
+├── package.json            # Dependencies + electron-builder config
+└── start.sh                # Development launcher
+```
 
-Join the [Claude Developers Discord](https://anthropic.com/discord) to connect with other developers using Claude Code. Get help, share feedback, and discuss your projects with the community.
+### How It Works
 
-## Data collection, usage, and retention
+1. **Main process** (`main.js`) creates a native macOS window with hidden title bar and vibrancy
+2. Uses **node-pty** to spawn a pseudo-terminal running the `claude` binary
+3. **Renderer process** embeds **xterm.js** to display the terminal output in the window
+4. IPC bridge connects the PTY ↔ xterm.js for bidirectional I/O
+5. All Claude Code features work identically to the terminal version
 
-When you use Claude Code, we collect feedback, which includes usage data (such as code acceptance or rejections), associated conversation data, and user feedback submitted via the `/bug` command.
+## Keyboard Shortcuts
 
-### How we use your data
+| Shortcut | Action |
+|----------|--------|
+| `Cmd+Shift+C` | Toggle window (global) |
+| `Cmd+N` | New session |
+| `Cmd+O` | Open project directory |
+| `Cmd+K` | Clear terminal |
+| `Cmd+,` | Settings |
+| `Cmd+=` / `Cmd+-` | Zoom in/out |
+| `Cmd+0` | Reset zoom |
+| `Cmd+Q` | Quit |
 
-See our [data usage policies](https://code.claude.com/docs/en/data-usage).
+## Settings
 
-### Privacy safeguards
+Access via `Cmd+,` or the gear icon:
 
-We have implemented several safeguards to protect your data, including limited retention periods for sensitive information, restricted access to user session data, and clear policies against using feedback for model training.
+- **Font Size** — Terminal font size (10–32)
+- **Font Family** — Monospace font for the terminal
+- **Theme** — System / Dark / Light
+- **Claude Binary Path** — Auto-detected or manual path
+- **Start in Tray** — Keep running when window is closed
+- **Global Shortcut** — Customize the toggle shortcut
 
-For full details, please review our [Commercial Terms of Service](https://www.anthropic.com/legal/commercial-terms) and [Privacy Policy](https://www.anthropic.com/legal/privacy).
+## License
+
+Based on [Claude Code](https://github.com/anthropics/claude-code) by Anthropic. See [LICENSE.md](LICENSE.md).

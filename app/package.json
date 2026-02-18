@@ -1,0 +1,68 @@
+{
+  "name": "claude-code-macos",
+  "version": "1.0.0",
+  "description": "Native macOS app for Claude Code — Anthropic's agentic coding tool",
+  "main": "src/main/main.js",
+  "author": "breathflowconnection",
+  "license": "MIT",
+  "scripts": {
+    "start": "unset ELECTRON_RUN_AS_NODE && electron .",
+    "build": "electron-builder --mac",
+    "build:dmg": "electron-builder --mac dmg",
+    "build:zip": "electron-builder --mac zip",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "build": {
+    "appId": "com.breathflowconnection.claude-code-macos",
+    "productName": "Claude Code",
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "icon": "assets/icon.icns",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["arm64", "x64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["arm64", "x64"]
+        }
+      ],
+      "hardenedRuntime": true,
+      "entitlements": "entitlements.mac.plist",
+      "entitlementsInherit": "entitlements.mac.plist",
+      "darkModeSupport": true
+    },
+    "dmg": {
+      "title": "Claude Code",
+      "backgroundColor": "#1a1a2e",
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ]
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "assets",
+        "to": "assets"
+      }
+    ]
+  },
+  "dependencies": {
+    "node-pty": "^1.0.0",
+    "@xterm/xterm": "^5.5.0",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-web-links": "^0.11.0",
+    "@xterm/addon-unicode11": "^0.8.0",
+    "@xterm/addon-serialize": "^0.13.0"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^25.0.0"
+  }
+}

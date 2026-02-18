@@ -1,0 +1,422 @@
+/* ── Reset & base ─────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #1a1a2e;
+  --bg-secondary: #16213e;
+  --bg-tertiary: #0f3460;
+  --text: #e4e4e7;
+  --text-muted: #a1a1aa;
+  --accent: #d97706;
+  --accent-hover: #f59e0b;
+  --border: #27273a;
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-hover: rgba(255, 255, 255, 0.08);
+  --danger: #ef4444;
+  --success: #22c55e;
+  --radius: 8px;
+  --titlebar-height: 52px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root[data-theme="system"] {
+    --bg: #f8f8fc;
+    --bg-secondary: #eeeff5;
+    --bg-tertiary: #dddee8;
+    --text: #1a1a2e;
+    --text-muted: #6b6b80;
+    --border: #d4d4dc;
+    --surface: rgba(0, 0, 0, 0.04);
+    --surface-hover: rgba(0, 0, 0, 0.07);
+  }
+}
+
+:root[data-theme="light"] {
+  --bg: #f8f8fc;
+  --bg-secondary: #eeeff5;
+  --bg-tertiary: #dddee8;
+  --text: #1a1a2e;
+  --text-muted: #6b6b80;
+  --border: #d4d4dc;
+  --surface: rgba(0, 0, 0, 0.04);
+  --surface-hover: rgba(0, 0, 0, 0.07);
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+/* ── Title bar ────────────────────────────────────────────── */
+#titlebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--titlebar-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  z-index: 100;
+  -webkit-app-region: drag;
+}
+
+#titlebar-drag {
+  position: absolute;
+  inset: 0;
+  -webkit-app-region: drag;
+}
+
+#titlebar-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+#titlebar-actions {
+  position: absolute;
+  right: 16px;
+  display: flex;
+  gap: 4px;
+  -webkit-app-region: no-drag;
+}
+
+#titlebar-actions button {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+#titlebar-actions button:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+/* ── Welcome screen ───────────────────────────────────────── */
+#welcome-screen {
+  position: absolute;
+  inset: 0;
+  top: var(--titlebar-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+}
+
+#welcome-content {
+  text-align: center;
+  max-width: 440px;
+  padding: 40px;
+}
+
+#welcome-logo {
+  margin-bottom: 20px;
+}
+
+#welcome-logo svg {
+  filter: drop-shadow(0 4px 20px rgba(217, 119, 6, 0.3));
+}
+
+#welcome-content h1 {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.subtitle {
+  font-size: 15px;
+  color: var(--text-muted);
+  margin-bottom: 28px;
+}
+
+#claude-status {
+  font-size: 13px;
+  margin-bottom: 24px;
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+#claude-status.found {
+  color: var(--success);
+}
+
+#claude-status.not-found {
+  color: var(--danger);
+}
+
+#welcome-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.primary-btn {
+  padding: 12px 28px;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 12px rgba(217, 119, 6, 0.3);
+}
+
+.primary-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(217, 119, 6, 0.4);
+}
+
+.primary-btn:active {
+  transform: translateY(0);
+}
+
+.primary-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.secondary-btn {
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.secondary-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent);
+}
+
+/* ── Terminal ─────────────────────────────────────────────── */
+#terminal-container {
+  position: absolute;
+  inset: 0;
+  top: var(--titlebar-height);
+  background: #1e1e2e;
+}
+
+#terminal-container.hidden {
+  display: none;
+}
+
+#terminal {
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+}
+
+/* xterm.js overrides */
+.xterm {
+  padding: 4px;
+}
+
+.xterm-viewport {
+  border-radius: 0 !important;
+}
+
+.xterm-viewport::-webkit-scrollbar {
+  width: 8px;
+}
+
+.xterm-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.xterm-viewport::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+.xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* ── Settings overlay ─────────────────────────────────────── */
+#settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+#settings-overlay.hidden {
+  display: none;
+}
+
+#settings-panel {
+  width: 460px;
+  max-height: 80vh;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+#settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+#settings-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+#btn-close-settings {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 20px;
+  cursor: pointer;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#btn-close-settings:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+#settings-body {
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.setting-group {
+  margin-bottom: 20px;
+}
+
+.setting-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.setting-group input[type="number"],
+.setting-group input[type="text"],
+.setting-group select {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.setting-group input:focus,
+.setting-group select:focus {
+  border-color: var(--accent);
+}
+
+.setting-group input[type="checkbox"] {
+  margin-right: 8px;
+  accent-color: var(--accent);
+}
+
+.input-with-button {
+  display: flex;
+  gap: 8px;
+}
+
+.input-with-button input {
+  flex: 1;
+}
+
+.input-with-button button {
+  padding: 8px 16px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.input-with-button button:hover {
+  background: var(--surface-hover);
+}
+
+.setting-actions {
+  margin-top: 24px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ── Utilities ────────────────────────────────────────────── */
+.hidden {
+  display: none !important;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--surface-hover);
+  border-radius: 4px;
+}
+
+/* ── Focus ring ───────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
