@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#1a1a2e" />
+    <title>Claude Code</title>
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="stylesheet" href="/xterm/xterm/css/xterm.css" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <!-- Login screen -->
+    <div id="login-screen">
+      <div class="login-content">
+        <div class="logo">
+          <svg width="56" height="56" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" rx="16" fill="#D97706"/>
+            <text x="32" y="42" text-anchor="middle" font-size="32" font-weight="bold" fill="white" font-family="system-ui">C</text>
+          </svg>
+        </div>
+        <h1>Claude Code</h1>
+        <p class="subtitle">Enter password to connect</p>
+        <form id="login-form">
+          <input type="password" id="password-input" placeholder="Password" autocomplete="current-password" />
+          <button type="submit" class="btn-primary">Connect</button>
+        </form>
+        <p id="login-error" class="error hidden"></p>
+      </div>
+    </div>
+
+    <!-- Project picker -->
+    <div id="project-screen" class="hidden">
+      <div class="screen-header">
+        <h2>Projects</h2>
+        <button id="btn-logout" class="btn-icon" title="Logout">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
+      </div>
+      <div id="project-list"></div>
+      <div class="screen-footer">
+        <button id="btn-home-session" class="btn-secondary">Start in Home Directory</button>
+      </div>
+    </div>
+
+    <!-- Terminal screen -->
+    <div id="terminal-screen" class="hidden">
+      <div class="terminal-header">
+        <button id="btn-back" class="btn-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <polyline points="15,18 9,12 15,6"/>
+          </svg>
+        </button>
+        <span id="terminal-title">Session</span>
+        <div class="terminal-actions">
+          <button id="btn-paste" class="btn-icon" title="Paste">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div id="terminal-container"></div>
+      <!-- Quick-action keys -->
+      <div id="quick-keys">
+        <button data-key="\x1b">ESC</button>
+        <button data-key="\t">TAB</button>
+        <button data-key="\x03">CTRL+C</button>
+        <button data-key="\x1b[A">UP</button>
+        <button data-key="\x1b[B">DOWN</button>
+        <button data-key="\r">ENTER</button>
+        <button data-key="y">Y</button>
+        <button data-key="n">N</button>
+      </div>
+      <!-- Mobile input bar (primary input method) -->
+      <div id="mobile-input-bar">
+        <form id="mobile-input-form">
+          <input type="text" id="mobile-input" placeholder="Type here and tap Send..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="send" />
+          <button type="submit" id="btn-send" title="Send">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <script src="/xterm/xterm/lib/xterm.js"></script>
+    <script src="/xterm/addon-fit/lib/addon-fit.js"></script>
+    <script src="/xterm/addon-web-links/lib/addon-web-links.js"></script>
+    <script src="/xterm/addon-unicode11/lib/addon-unicode11.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>

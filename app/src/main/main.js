@@ -13,7 +13,6 @@ const {
 const path = require("path");
 const os = require("os");
 const fs = require("fs");
-const { spawn } = require("child_process");
 const pty = require("node-pty");
 
 // ── Simple JSON settings store ──────────────────────────────────────
@@ -37,7 +36,6 @@ class SimpleStore {
     this._data = { ...DEFAULTS };
     this._load();
   }
-
   _load() {
     try {
       if (fs.existsSync(this._path)) {
@@ -46,7 +44,6 @@ class SimpleStore {
       }
     } catch {}
   }
-
   _save() {
     try {
       const dir = path.dirname(this._path);
@@ -54,11 +51,9 @@ class SimpleStore {
       fs.writeFileSync(this._path, JSON.stringify(this._data, null, 2));
     } catch {}
   }
-
   get(key) {
     return key ? this._data[key] : { ...this._data };
   }
-
   set(key, value) {
     if (typeof key === "object") {
       Object.assign(this._data, key);
@@ -69,18 +64,16 @@ class SimpleStore {
   }
 }
 
-let store; // initialized after app is ready
-
+let store;
 let mainWindow = null;
 let tray = null;
-let ptyProcess = null;
-let claudeBinaryPath = null;
 
-// ── Find claude binary ──────────────────────────────────────────────
+// ── Multi-tab PTY management ────────────────────────────────────────
+const ptyProcesses = new Map();
+
 function findClaudeBinary() {
   const custom = store.get("claudePath");
   if (custom) return custom;
-
   const candidates = [
     "/usr/local/bin/claude",
     "/opt/homebrew/bin/claude",
@@ -88,35 +81,84 @@ function findClaudeBinary() {
     path.join(os.homedir(), ".local/bin/claude"),
     path.join(os.homedir(), ".claude/local/claude"),
   ];
-
   for (const p of candidates) {
     try {
-      require("fs").accessSync(p, require("fs").constants.X_OK);
+      fs.accessSync(p, fs.constants.X_OK);
       return p;
     } catch {}
   }
-
-  // Fallback: try which
   try {
-    const result = require("child_process").execSync("which claude", {
-      encoding: "utf8",
-      timeout: 5000,
-    });
-    return result.trim();
+    return require("child_process")
+      .execSync("which claude", { encoding: "utf8", timeout: 5000 })
+      .trim();
   } catch {}
-
   return null;
 }
 
-// ── Create main window ──────────────────────────────────────────────
+function spawnPtyForTab(tabId, projectDir) {
+  killPtyForTab(tabId);
+  const claudeBinaryPath = findClaudeBinary();
+  if (!claudeBinaryPath) {
+    sendToRenderer("pty-error", {
+      tabId,
+      message: "Claude Code not found. Install: curl -fsSL https://claude.ai/install.sh | bash",
+    });
+    return;
+  }
+  const env = Object.assign({}, process.env, {
+    TERM: "xterm-256color",
+    COLORTERM: "truecolor",
+    LANG: process.env.LANG || "en_US.UTF-8",
+    NODE_OPTIONS: "--max-old-space-size=4096",
+  });
+  delete env.CLAUDECODE;
+  delete env.CLAUDE_CODE_SESSION;
+  delete env.CLAUDE_CODE_ENTRY_POINT;
+  delete env.ELECTRON_RUN_AS_NODE;
+
+  const proc = pty.spawn(claudeBinaryPath, [], {
+    name: "xterm-256color",
+    cols: 120,
+    rows: 40,
+    cwd: projectDir || os.homedir(),
+    env,
+  });
+  ptyProcesses.set(tabId, proc);
+
+  proc.onData((data) => sendToRenderer("pty-data", { tabId, data }));
+  proc.onExit(({ exitCode, signal }) => {
+    sendToRenderer("pty-exit", { tabId, exitCode, signal });
+    ptyProcesses.delete(tabId);
+  });
+}
+
+function killPtyForTab(tabId) {
+  const proc = ptyProcesses.get(tabId);
+  if (proc) {
+    try { proc.kill(); } catch {}
+    ptyProcesses.delete(tabId);
+  }
+}
+
+function killAllPty() {
+  for (const [, proc] of ptyProcesses) {
+    try { proc.kill(); } catch {}
+  }
+  ptyProcesses.clear();
+}
+
+function sendToRenderer(channel, data) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(channel, data);
+  }
+}
+
+// ── Window ──────────────────────────────────────────────────────────
 function createWindow() {
   const { width, height } = store.get("windowBounds");
-
   mainWindow = new BrowserWindow({
-    width,
-    height,
-    minWidth: 600,
-    minHeight: 400,
+    width, height,
+    minWidth: 600, minHeight: 400,
     titleBarStyle: "hiddenInset",
     trafficLightPosition: { x: 15, y: 15 },
     vibrancy: "under-window",
@@ -132,326 +174,113 @@ function createWindow() {
     show: false,
     icon: getAppIcon(),
   });
-
   mainWindow.loadFile(path.join(__dirname, "..", "renderer", "index.html"));
-
-  mainWindow.once("ready-to-show", () => {
-    mainWindow.show();
-    mainWindow.focus();
-  });
-
+  mainWindow.once("ready-to-show", () => { mainWindow.show(); mainWindow.focus(); });
   mainWindow.on("resize", () => {
-    const bounds = mainWindow.getBounds();
-    store.set("windowBounds", { width: bounds.width, height: bounds.height });
+    const b = mainWindow.getBounds();
+    store.set("windowBounds", { width: b.width, height: b.height });
   });
-
   mainWindow.on("close", (e) => {
-    if (store.get("startInTray") && !app.isQuitting) {
-      e.preventDefault();
-      mainWindow.hide();
-    }
+    if (store.get("startInTray") && !app.isQuitting) { e.preventDefault(); mainWindow.hide(); }
   });
-
-  mainWindow.on("closed", () => {
-    mainWindow = null;
-    killPty();
-  });
+  mainWindow.on("closed", () => { mainWindow = null; killAllPty(); });
 }
 
-// ── App icon ────────────────────────────────────────────────────────
 function getAppIcon() {
-  const iconPath = path.join(__dirname, "..", "..", "assets", "icon.png");
-  try {
-    return nativeImage.createFromPath(iconPath);
-  } catch {
-    return null;
-  }
+  try { return nativeImage.createFromPath(path.join(__dirname, "..", "..", "assets", "icon.png")); }
+  catch { return null; }
 }
 
 // ── System tray ─────────────────────────────────────────────────────
 function createTray() {
   const trayIcon = getAppIcon();
   if (!trayIcon) return;
-
-  const smallIcon = trayIcon.resize({ width: 18, height: 18 });
-  tray = new Tray(smallIcon);
+  tray = new Tray(trayIcon.resize({ width: 18, height: 18 }));
   tray.setToolTip("Claude Code");
-
-  const contextMenu = Menu.buildFromTemplate([
-    {
-      label: "Show Claude Code",
-      click: () => {
-        if (mainWindow) {
-          mainWindow.show();
-          mainWindow.focus();
-        } else {
-          createWindow();
-        }
-      },
-    },
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: "Show Claude Code", click: () => { if (mainWindow) { mainWindow.show(); mainWindow.focus(); } else createWindow(); } },
     { type: "separator" },
-    {
-      label: "New Session",
-      accelerator: "CommandOrControl+N",
-      click: () => sendToRenderer("new-session"),
-    },
+    { label: "New Tab", accelerator: "CommandOrControl+T", click: () => sendToRenderer("new-tab") },
     { type: "separator" },
-    {
-      label: "Quit",
-      accelerator: "CommandOrControl+Q",
-      click: () => {
-        app.isQuitting = true;
-        app.quit();
-      },
-    },
-  ]);
-
-  tray.setContextMenu(contextMenu);
-  tray.on("click", () => {
-    if (mainWindow) {
-      mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();
-    }
-  });
+    { label: "Quit", accelerator: "CommandOrControl+Q", click: () => { app.isQuitting = true; app.quit(); } },
+  ]));
+  tray.on("click", () => { if (mainWindow) mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show(); });
 }
 
-// ── Application menu ────────────────────────────────────────────────
+// ── Menu ────────────────────────────────────────────────────────────
 function createMenu() {
-  const template = [
-    {
-      label: app.name,
-      submenu: [
-        { role: "about" },
-        { type: "separator" },
-        {
-          label: "Preferences...",
-          accelerator: "CommandOrControl+,",
-          click: () => sendToRenderer("open-settings"),
-        },
-        { type: "separator" },
-        { role: "services" },
-        { type: "separator" },
-        { role: "hide" },
-        { role: "hideOthers" },
-        { role: "unhide" },
-        { type: "separator" },
-        {
-          label: "Quit",
-          accelerator: "CommandOrControl+Q",
-          click: () => {
-            app.isQuitting = true;
-            app.quit();
-          },
-        },
-      ],
-    },
-    {
-      label: "Session",
-      submenu: [
-        {
-          label: "New Session",
-          accelerator: "CommandOrControl+N",
-          click: () => sendToRenderer("new-session"),
-        },
-        {
-          label: "Clear Terminal",
-          accelerator: "CommandOrControl+K",
-          click: () => sendToRenderer("clear-terminal"),
-        },
-        { type: "separator" },
-        {
-          label: "Open Project...",
-          accelerator: "CommandOrControl+O",
-          click: async () => {
-            const result = await dialog.showOpenDialog(mainWindow, {
-              properties: ["openDirectory"],
-              message: "Select a project directory for Claude Code",
-            });
-            if (!result.canceled && result.filePaths.length > 0) {
-              sendToRenderer("open-project", result.filePaths[0]);
-            }
-          },
-        },
-      ],
-    },
-    {
-      label: "Edit",
-      submenu: [
-        { role: "undo" },
-        { role: "redo" },
-        { type: "separator" },
-        { role: "cut" },
-        { role: "copy" },
-        { role: "paste" },
-        { role: "selectAll" },
-      ],
-    },
-    {
-      label: "View",
-      submenu: [
-        {
-          label: "Zoom In",
-          accelerator: "CommandOrControl+=",
-          click: () => sendToRenderer("zoom-in"),
-        },
-        {
-          label: "Zoom Out",
-          accelerator: "CommandOrControl+-",
-          click: () => sendToRenderer("zoom-out"),
-        },
-        {
-          label: "Reset Zoom",
-          accelerator: "CommandOrControl+0",
-          click: () => sendToRenderer("zoom-reset"),
-        },
-        { type: "separator" },
-        { role: "togglefullscreen" },
-        { type: "separator" },
-        { role: "toggleDevTools" },
-      ],
-    },
-    {
-      label: "Window",
-      submenu: [
-        { role: "minimize" },
-        { role: "zoom" },
-        { type: "separator" },
-        { role: "front" },
-      ],
-    },
-    {
-      label: "Help",
-      submenu: [
-        {
-          label: "Claude Code Documentation",
-          click: () =>
-            shell.openExternal("https://code.claude.com/docs/en/overview"),
-        },
-        {
-          label: "Report Issue",
-          click: () =>
-            shell.openExternal(
-              "https://github.com/breathflowconnection/claude-code-macos/issues"
-            ),
-        },
-      ],
-    },
-  ];
-
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    { label: app.name, submenu: [
+      { role: "about" },
+      { type: "separator" },
+      { label: "Preferences...", accelerator: "CommandOrControl+,", click: () => sendToRenderer("open-settings") },
+      { type: "separator" },
+      { role: "services" },
+      { type: "separator" },
+      { role: "hide" }, { role: "hideOthers" }, { role: "unhide" },
+      { type: "separator" },
+      { label: "Quit", accelerator: "CommandOrControl+Q", click: () => { app.isQuitting = true; app.quit(); } },
+    ]},
+    { label: "Session", submenu: [
+      { label: "New Tab", accelerator: "CommandOrControl+T", click: () => sendToRenderer("new-tab") },
+      { label: "Close Tab", accelerator: "CommandOrControl+W", click: () => sendToRenderer("close-tab") },
+      { type: "separator" },
+      { label: "Next Tab", accelerator: "Control+Tab", click: () => sendToRenderer("next-tab") },
+      { label: "Previous Tab", accelerator: "Control+Shift+Tab", click: () => sendToRenderer("prev-tab") },
+      { type: "separator" },
+      { label: "Clear Terminal", accelerator: "CommandOrControl+K", click: () => sendToRenderer("clear-terminal") },
+      { label: "Open Project in Tab...", accelerator: "CommandOrControl+O", click: async () => {
+        const result = await dialog.showOpenDialog(mainWindow, { properties: ["openDirectory"], message: "Select a project directory" });
+        if (!result.canceled && result.filePaths.length > 0) sendToRenderer("open-project", result.filePaths[0]);
+      }},
+    ]},
+    { label: "Edit", submenu: [
+      { role: "undo" }, { role: "redo" }, { type: "separator" },
+      { role: "cut" }, { role: "copy" }, { role: "paste" }, { role: "selectAll" },
+    ]},
+    { label: "View", submenu: [
+      { label: "Zoom In", accelerator: "CommandOrControl+=", click: () => sendToRenderer("zoom-in") },
+      { label: "Zoom Out", accelerator: "CommandOrControl+-", click: () => sendToRenderer("zoom-out") },
+      { label: "Reset Zoom", accelerator: "CommandOrControl+0", click: () => sendToRenderer("zoom-reset") },
+      { type: "separator" }, { role: "togglefullscreen" }, { type: "separator" }, { role: "toggleDevTools" },
+    ]},
+    { label: "Window", submenu: [{ role: "minimize" }, { role: "zoom" }, { type: "separator" }, { role: "front" }] },
+    { label: "Help", submenu: [
+      { label: "Claude Code Documentation", click: () => shell.openExternal("https://code.claude.com/docs/en/overview") },
+      { label: "Report Issue", click: () => shell.openExternal("https://github.com/breathflowconnection/claude-code-macos/issues") },
+    ]},
+  ]));
 }
 
-// ── PTY management ──────────────────────────────────────────────────
-function spawnPty(projectDir) {
-  killPty();
-
-  claudeBinaryPath = findClaudeBinary();
-
-  if (!claudeBinaryPath) {
-    sendToRenderer(
-      "pty-error",
-      "Claude Code binary not found. Install it with: curl -fsSL https://claude.ai/install.sh | bash"
-    );
-    return;
-  }
-
-  const shellPath = store.get("shell");
-  const env = Object.assign({}, process.env, {
-    TERM: "xterm-256color",
-    COLORTERM: "truecolor",
-    LANG: process.env.LANG || "en_US.UTF-8",
-    NODE_OPTIONS: "--max-old-space-size=4096",
-  });
-
-  const cwd = projectDir || os.homedir();
-  const args = [];
-
-  ptyProcess = pty.spawn(claudeBinaryPath, args, {
-    name: "xterm-256color",
-    cols: 120,
-    rows: 40,
-    cwd,
-    env,
-  });
-
-  ptyProcess.onData((data) => {
-    sendToRenderer("pty-data", data);
-  });
-
-  ptyProcess.onExit(({ exitCode, signal }) => {
-    sendToRenderer("pty-exit", { exitCode, signal });
-    ptyProcess = null;
-  });
-}
-
-function killPty() {
-  if (ptyProcess) {
-    try {
-      ptyProcess.kill();
-    } catch {}
-    ptyProcess = null;
-  }
-}
-
-function sendToRenderer(channel, data) {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send(channel, data);
-  }
-}
-
-// ── IPC handlers ────────────────────────────────────────────────────
+// ── IPC ─────────────────────────────────────────────────────────────
 function setupIPC() {
-  ipcMain.on("pty-input", (_event, data) => {
-    if (ptyProcess) {
-      ptyProcess.write(data);
-    }
+  ipcMain.on("pty-input", (_e, { tabId, data }) => {
+    const proc = ptyProcesses.get(tabId);
+    if (proc) proc.write(data);
   });
-
-  ipcMain.on("pty-resize", (_event, { cols, rows }) => {
-    if (ptyProcess) {
-      try {
-        ptyProcess.resize(cols, rows);
-      } catch {}
-    }
+  ipcMain.on("pty-resize", (_e, { tabId, cols, rows }) => {
+    const proc = ptyProcesses.get(tabId);
+    if (proc) try { proc.resize(cols, rows); } catch {}
   });
+  ipcMain.on("pty-spawn", (_e, { tabId, projectDir }) => spawnPtyForTab(tabId, projectDir));
+  ipcMain.on("pty-kill", (_e, tabId) => killPtyForTab(tabId));
 
-  ipcMain.on("pty-spawn", (_event, projectDir) => {
-    spawnPty(projectDir);
-  });
-
-  ipcMain.on("pty-kill", () => {
-    killPty();
-  });
-
-  ipcMain.handle("get-settings", () => {
-    return {
-      fontSize: store.get("fontSize"),
-      fontFamily: store.get("fontFamily"),
-      theme: store.get("theme"),
-      claudePath: store.get("claudePath"),
-      startInTray: store.get("startInTray"),
-      globalShortcut: store.get("globalShortcut"),
-    };
-  });
-
-  ipcMain.handle("set-settings", (_event, settings) => {
-    for (const [key, value] of Object.entries(settings)) {
-      store.set(key, value);
-    }
+  ipcMain.handle("get-settings", () => ({
+    fontSize: store.get("fontSize"),
+    fontFamily: store.get("fontFamily"),
+    theme: store.get("theme"),
+    claudePath: store.get("claudePath"),
+    startInTray: store.get("startInTray"),
+    globalShortcut: store.get("globalShortcut"),
+  }));
+  ipcMain.handle("set-settings", (_e, settings) => {
+    for (const [k, v] of Object.entries(settings)) store.set(k, v);
     return true;
   });
-
-  ipcMain.handle("get-claude-path", () => {
-    return findClaudeBinary();
-  });
-
+  ipcMain.handle("get-claude-path", () => findClaudeBinary());
   ipcMain.handle("select-directory", async () => {
-    const result = await dialog.showOpenDialog(mainWindow, {
-      properties: ["openDirectory"],
-    });
-    if (!result.canceled && result.filePaths.length > 0) {
-      return result.filePaths[0];
-    }
-    return null;
+    const result = await dialog.showOpenDialog(mainWindow, { properties: ["openDirectory"] });
+    return (!result.canceled && result.filePaths.length > 0) ? result.filePaths[0] : null;
   });
 }
 
@@ -461,15 +290,8 @@ function registerGlobalShortcut() {
   if (shortcut) {
     globalShortcut.register(shortcut, () => {
       if (mainWindow) {
-        if (mainWindow.isVisible() && mainWindow.isFocused()) {
-          mainWindow.hide();
-        } else {
-          mainWindow.show();
-          mainWindow.focus();
-        }
-      } else {
-        createWindow();
-      }
+        (mainWindow.isVisible() && mainWindow.isFocused()) ? mainWindow.hide() : (mainWindow.show(), mainWindow.focus());
+      } else createWindow();
     });
   }
 }
@@ -477,38 +299,13 @@ function registerGlobalShortcut() {
 // ── App lifecycle ───────────────────────────────────────────────────
 app.whenReady().then(() => {
   store = new SimpleStore();
-  createMenu();
-  createWindow();
-  createTray();
-  setupIPC();
-  registerGlobalShortcut();
-
+  createMenu(); createWindow(); createTray(); setupIPC(); registerGlobalShortcut();
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    } else if (mainWindow) {
-      mainWindow.show();
-      mainWindow.focus();
-    }
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    else if (mainWindow) { mainWindow.show(); mainWindow.focus(); }
   });
 });
-
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin" || !store.get("startInTray")) {
-    app.quit();
-  }
-});
-
-app.on("will-quit", () => {
-  globalShortcut.unregisterAll();
-  killPty();
-});
-
-app.on("before-quit", () => {
-  app.isQuitting = true;
-});
-
-// Handle dark mode changes
-nativeTheme.on("updated", () => {
-  sendToRenderer("theme-changed", nativeTheme.shouldUseDarkColors);
-});
+app.on("window-all-closed", () => { if (process.platform !== "darwin" || !store.get("startInTray")) app.quit(); });
+app.on("will-quit", () => { globalShortcut.unregisterAll(); killAllPty(); });
+app.on("before-quit", () => { app.isQuitting = true; });
+nativeTheme.on("updated", () => sendToRenderer("theme-changed", nativeTheme.shouldUseDarkColors));

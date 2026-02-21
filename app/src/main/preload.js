@@ -1,55 +1,41 @@
-// With nodeIntegration enabled, the renderer can use require() directly.
-// This preload exposes the IPC bridge as window.claude for clean separation.
 const { ipcRenderer } = require("electron");
 
 window.claude = {
-  // PTY communication
   pty: {
-    spawn: (projectDir) => ipcRenderer.send("pty-spawn", projectDir),
-    write: (data) => ipcRenderer.send("pty-input", data),
-    resize: (cols, rows) => ipcRenderer.send("pty-resize", { cols, rows }),
-    kill: () => ipcRenderer.send("pty-kill"),
+    spawn: (tabId, projectDir) => ipcRenderer.send("pty-spawn", { tabId, projectDir }),
+    write: (tabId, data) => ipcRenderer.send("pty-input", { tabId, data }),
+    resize: (tabId, cols, rows) => ipcRenderer.send("pty-resize", { tabId, cols, rows }),
+    kill: (tabId) => ipcRenderer.send("pty-kill", tabId),
     onData: (callback) => {
-      const listener = (_event, data) => callback(data);
+      const listener = (_e, { tabId, data }) => callback(tabId, data);
       ipcRenderer.on("pty-data", listener);
       return () => ipcRenderer.removeListener("pty-data", listener);
     },
     onExit: (callback) => {
-      const listener = (_event, data) => callback(data);
+      const listener = (_e, { tabId, exitCode, signal }) => callback(tabId, exitCode, signal);
       ipcRenderer.on("pty-exit", listener);
       return () => ipcRenderer.removeListener("pty-exit", listener);
     },
     onError: (callback) => {
-      const listener = (_event, data) => callback(data);
+      const listener = (_e, { tabId, message }) => callback(tabId, message);
       ipcRenderer.on("pty-error", listener);
       return () => ipcRenderer.removeListener("pty-error", listener);
     },
   },
-
-  // Settings
   settings: {
     get: () => ipcRenderer.invoke("get-settings"),
     set: (settings) => ipcRenderer.invoke("set-settings", settings),
   },
-
-  // Utilities
   getClaudePath: () => ipcRenderer.invoke("get-claude-path"),
   selectDirectory: () => ipcRenderer.invoke("select-directory"),
-
-  // Menu events
   on: (channel, callback) => {
-    const validChannels = [
-      "new-session",
-      "clear-terminal",
-      "open-project",
-      "open-settings",
-      "zoom-in",
-      "zoom-out",
-      "zoom-reset",
-      "theme-changed",
+    const valid = [
+      "new-tab", "close-tab", "next-tab", "prev-tab",
+      "new-session", "clear-terminal", "open-project", "open-settings",
+      "zoom-in", "zoom-out", "zoom-reset", "theme-changed",
     ];
-    if (validChannels.includes(channel)) {
-      const listener = (_event, ...args) => callback(...args);
+    if (valid.includes(channel)) {
+      const listener = (_e, ...args) => callback(...args);
       ipcRenderer.on(channel, listener);
       return () => ipcRenderer.removeListener(channel, listener);
     }

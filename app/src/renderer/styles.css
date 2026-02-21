@@ -22,6 +22,7 @@
   --success: #22c55e;
   --radius: 8px;
   --titlebar-height: 52px;
+  --tabbar-height: 36px;
 }
 
 @media (prefers-color-scheme: light) {
@@ -223,19 +224,100 @@ body {
   border-color: var(--accent);
 }
 
+/* ── Tab bar ──────────────────────────────────────────────── */
+#tabbar {
+  position: fixed;
+  top: var(--titlebar-height);
+  left: 0;
+  right: 0;
+  height: var(--tabbar-height);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-app-region: no-drag;
+}
+
+#tabbar::-webkit-scrollbar {
+  height: 0;
+}
+
+#tabs {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 8px;
+  gap: 2px;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.tab:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.tab.active {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.tab-label {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-close {
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  padding: 0 2px;
+  border-radius: 3px;
+}
+
+.tab:hover .tab-close,
+.tab.active .tab-close {
+  opacity: 0.6;
+}
+
+.tab-close:hover {
+  opacity: 1 !important;
+  background: var(--surface-hover);
+}
+
 /* ── Terminal ─────────────────────────────────────────────── */
-#terminal-container {
+#terminals-container {
   position: absolute;
   inset: 0;
-  top: var(--titlebar-height);
+  top: calc(var(--titlebar-height) + var(--tabbar-height));
   background: #1e1e2e;
 }
 
-#terminal-container.hidden {
+#terminals-container.hidden {
   display: none;
 }
 
-#terminal {
+.terminal-panel {
   width: 100%;
   height: 100%;
   padding: 8px;
